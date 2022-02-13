@@ -34,11 +34,6 @@ class BaseTrainer:
             self.device = torch.device("cuda:0" if torch.cuda.is_available() and settings.use_gpu else "cpu")
 
         self.actor.to(self.device)
-        
-    def updateBN(self):
-        for m in self.net.backbone.modules():
-            if isinstance(m, nn.BatchNorm2d):
-                m.weight.grad.data.add_(self.cfg.s*torch.sign(m.weight.data))  # L1
                 
     def update_settings(self, settings=None):
         """Updates the trainer settings. Must be called to update internal settings."""
