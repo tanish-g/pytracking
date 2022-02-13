@@ -8,7 +8,7 @@ import time
 
 
 class LTRTrainer(BaseTrainer):
-    def __init__(self, actor, loaders, optimizer, settings,prune=False,lr_scheduler=None):
+    def __init__(self, actor, loaders, optimizer, settings,lr_scheduler=None):
         """
         args:
             actor - The actor for training the network
@@ -28,7 +28,7 @@ class LTRTrainer(BaseTrainer):
         # Initialize tensorboard
         tensorboard_writer_dir = os.path.join(self.settings.env.tensorboard_dir, self.settings.project_path)
         self.tensorboard_writer = TensorboardWriter(tensorboard_writer_dir, [l.name for l in loaders])
-        self.prune = prune
+        self.prune = settings.prune
         self.move_data_to_gpu = getattr(settings, 'move_data_to_gpu', True)
 
     def _set_default_settings(self):
