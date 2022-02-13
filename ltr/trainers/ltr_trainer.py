@@ -8,7 +8,7 @@ import time
 
 
 class LTRTrainer(BaseTrainer):
-    def __init__(self, actor, loaders, optimizer, settings, lr_scheduler=None):
+    def __init__(self, actor, loaders, optimizer, settings,prune=False,lr_scheduler=None):
         """
         args:
             actor - The actor for training the network
@@ -28,7 +28,7 @@ class LTRTrainer(BaseTrainer):
         # Initialize tensorboard
         tensorboard_writer_dir = os.path.join(self.settings.env.tensorboard_dir, self.settings.project_path)
         self.tensorboard_writer = TensorboardWriter(tensorboard_writer_dir, [l.name for l in loaders])
-
+        self.prune = prune
         self.move_data_to_gpu = getattr(settings, 'move_data_to_gpu', True)
 
     def _set_default_settings(self):
@@ -40,6 +40,11 @@ class LTRTrainer(BaseTrainer):
         for param, default_value in default.items():
             if getattr(self.settings, param, None) is None:
                 setattr(self.settings, param, default_value)
+    
+    def updateBN(self):
+        for m in self.actor.feature_extractor.modules():
+            if isinstance(m, nn.BatchNorm2d):
+                m.weight.grad.data.add_(self.cfg.s*torch.sign(m.weight.data))  # L1
 
     def cycle_dataset(self, loader):
         """Do a cycle of training or validation."""
@@ -64,6 +69,8 @@ class LTRTrainer(BaseTrainer):
             if loader.training:
                 self.optimizer.zero_grad()
                 loss.backward()
+                if self.prune: ##add gamma grad in bn
+                    self.updateBN()
                 self.optimizer.step()
 
             # update statistics
