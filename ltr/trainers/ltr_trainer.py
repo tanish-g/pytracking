@@ -42,7 +42,7 @@ class LTRTrainer(BaseTrainer):
                 setattr(self.settings, param, default_value)
     
     def updateBN(self):
-        for m in self.actor.feature_extractor.modules():
+        for m in self.actor.net.feature_extractor.modules():
             if isinstance(m, nn.BatchNorm2d):
                 m.weight.grad.data.add_(self.cfg.s*torch.sign(m.weight.data))  # L1
 
