@@ -113,6 +113,6 @@ def run(settings):
 
     lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.2)
 
-    trainer = LTRTrainer(actor, [loader_train, loader_val], optimizer, settings,settings.prune,lr_scheduler)
+    trainer = LTRTrainer(actor, [loader_train, loader_val], optimizer, settings,lr_scheduler)
 
     trainer.train(50, load_latest=True, fail_safe=True)
