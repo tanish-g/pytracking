@@ -13,7 +13,7 @@ if env_path not in sys.path:
 import ltr.admin.settings as ws_settings
 
 
-def run_training(train_module, train_name, cudnn_benchmark=True,prune):
+def run_training(train_module, train_name,prune,cudnn_benchmark=True):
     """Run a train scripts in train_settings.
     args:
         train_module: Name of module in the "train_settings/" folder.
@@ -49,7 +49,7 @@ def main():
 
     args = parser.parse_args()
 
-    run_training(args.train_module, args.train_name, args.cudnn_benchmark,args.prune)
+    run_training(args.train_module, args.train_name,args.prune,args.cudnn_benchmark)
 
 
 if __name__ == '__main__':
