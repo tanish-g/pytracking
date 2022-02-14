@@ -44,7 +44,7 @@ class LTRTrainer(BaseTrainer):
     def updateBN(self):
         for m in self.actor.net.feature_extractor.modules():
             if isinstance(m, nn.BatchNorm2d):
-                m.weight.grad.data.add_(self.cfg.s*torch.sign(m.weight.data))  # L1
+                m.weight.grad.data.add_(settings.s*torch.sign(m.weight.data))  # L1
 
     def cycle_dataset(self, loader):
         """Do a cycle of training or validation."""
