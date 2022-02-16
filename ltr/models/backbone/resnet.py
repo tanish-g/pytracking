@@ -4,6 +4,8 @@ from collections import OrderedDict
 import torch.utils.model_zoo as model_zoo
 from torchvision.models.resnet import model_urls
 from .base import Backbone
+from .channel_selection import channel_selection
+
 
 
 def conv3x3(in_planes, out_planes, stride=1, dilation=1):
@@ -68,12 +70,14 @@ class Bottleneck(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
+        self.select = channel_selection(inplanes)
 
     def forward(self, x):
         residual = x
-
+        x = self.select(x)
         out = self.conv1(x)
         out = self.bn1(out)
+#         out = self.select(out)
         out = self.relu(out)
 
         out = self.conv2(out)
