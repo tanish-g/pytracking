@@ -259,10 +259,10 @@ def dimpnet101(filter_size=1, optim_iter=5, optim_init_step=1.0, optim_init_reg=
               out_feature_dim=512, init_gauss_sigma=1.0, num_dist_bins=5, bin_displacement=1.0,
               mask_init_factor=4.0, iou_input_dim=(256, 256), iou_inter_dim=(256, 256),
               score_act='relu', act_param=None, target_mask_act='sigmoid',
-              detach_length=float('Inf'), frozen_backbone_layers=(),cfg = None):
+              detach_length=float('Inf'), frozen_backbone_layers=()):
 
     # Backbone
-    backbone_net = backbones.resnet101_child(pretrained=backbone_pretrained, frozen_layers=frozen_backbone_layers,cfg=cfg)
+    backbone_net = backbones.resnet101(pretrained=backbone_pretrained, frozen_layers=frozen_backbone_layers)
 
     # Feature normalization
     norm_scale = math.sqrt(1.0 / (out_feature_dim * filter_size * filter_size))
@@ -313,10 +313,10 @@ def dimpnet101_child(filter_size=1, optim_iter=5, optim_init_step=1.0, optim_ini
               out_feature_dim=512, init_gauss_sigma=1.0, num_dist_bins=5, bin_displacement=1.0,
               mask_init_factor=4.0, iou_input_dim=(256, 256), iou_inter_dim=(256, 256),
               score_act='relu', act_param=None, target_mask_act='sigmoid',
-              detach_length=float('Inf'), frozen_backbone_layers=()):
+              detach_length=float('Inf'), frozen_backbone_layers=(),cfg=None):
 
     # Backbone
-    backbone_net = backbones.resnet101_child(pretrained=backbone_pretrained, frozen_layers=frozen_backbone_layers)
+    backbone_net = backbones.resnet101_child(pretrained=backbone_pretrained, frozen_layers=frozen_backbone_layers,cfg=cfg)
 
     # Feature normalization
     norm_scale = math.sqrt(1.0 / (out_feature_dim * filter_size * filter_size))

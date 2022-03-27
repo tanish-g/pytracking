@@ -32,7 +32,7 @@ def run_training(train_module, train_name,prune,s,ckpt_path,epochs,cudnn_benchma
     settings.module_name = train_module
     settings.script_name = train_name
     settings.project_path = 'ltr/{}/{}/{}'.format(train_module,ckpt_path,train_name)
-    settings.prune = True
+    settings.prune = False
     settings.s = s
     settings.ckpt_path = ckpt_path
     settings.max_epoch = epochs
