@@ -26,7 +26,9 @@ def sample_target(im, target_bb, search_area_factor, output_sz=None, mask=None):
     crop_sz = math.ceil(math.sqrt(w * h) * search_area_factor)
 
     if crop_sz < 1:
-        raise Exception('Too small bounding box.')
+#         crop_sz = 1
+        print('small bbox detected part3')
+#         raise Exception('Too small bounding box.')
 
     x1 = round(x + 0.5 * w - crop_sz * 0.5)
     x2 = x1 + crop_sz
@@ -178,7 +180,10 @@ def sample_target_adaptive(im, target_bb, search_area_factor, output_sz, mode: s
         crop_sz_y = math.floor(crop_sz_y / rescale_factor)
 
     if crop_sz_x < 1 or crop_sz_y < 1:
-        raise Exception('Too small bounding box.')
+#         crop_sz_x = 1
+#         crop_sz_y = 1
+        print('small bbox detected')
+#         raise Exception('Too small bounding box.')
 
     x1 = round(bbx + 0.5 * bbw - crop_sz_x * 0.5)
     x2 = x1 + crop_sz_x
@@ -284,7 +289,10 @@ def crop_and_resize(im, box, crop_bb, output_sz, mask=None):
     im_w = im.shape[1]
 
     if crop_bb[2] < 1 or crop_bb[3] < 1:
-        raise Exception('Too small bounding box.')
+#         crop_bb[2] = 1
+#         crop_bb[3] = 1
+        print('small bbox detected part2')
+#         raise Exception('Too small bounding box.')
 
     x1 = crop_bb[0]
     x2 = crop_bb[0] + crop_bb[2]

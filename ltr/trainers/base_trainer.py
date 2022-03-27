@@ -47,6 +47,8 @@ class BaseTrainer:
                 os.makedirs(self._checkpoint_dir)
         else:
             self._checkpoint_dir = None
+        
+        self._checkpoint_dir = "/workspace/tracking_datasets/saved_ckpts"
 
 
     def train(self, max_epochs, load_latest=False, fail_safe=True):
@@ -58,7 +60,7 @@ class BaseTrainer:
         """
 
         epoch = -1
-        num_tries = 10
+        num_tries = 1
         for i in range(num_tries):
             try:
                 if load_latest:
@@ -112,7 +114,8 @@ class BaseTrainer:
         }
 
 
-        directory = '{}/{}'.format(self._checkpoint_dir, self.settings.project_path)
+#         directory = '{}/{}'.format(self._checkpoint_dir, self.settings.project_path)
+        directory = '{}/{}'.format("/workspace/tracking_datasets/saved_ckpts", self.settings.project_path)
         if not os.path.exists(directory):
             os.makedirs(directory)
 

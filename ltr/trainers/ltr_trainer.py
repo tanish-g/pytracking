@@ -5,8 +5,9 @@ from ltr.admin.stats import AverageMeter, StatValue
 from ltr.admin.tensorboard import TensorboardWriter
 import torch
 import time
-
-
+import torch.nn as nn
+from tqdm import tqdm
+import wandb
 class LTRTrainer(BaseTrainer):
     def __init__(self, actor, loaders, optimizer, settings,lr_scheduler=None):
         """
@@ -21,7 +22,12 @@ class LTRTrainer(BaseTrainer):
         super().__init__(actor, loaders, optimizer, settings, lr_scheduler)
 
         self._set_default_settings()
-
+        wandb.login(key='be7f0d41e450e88a50bffe21de84b92e10fbb826')
+        run = wandb.init(project="Pruning-in-Tracking",
+                         name=settings.script_name,
+                         group=settings.ckpt_path,
+                         entity="tg34",
+                         resume="allow")
         # Initialize statistics variables
         self.stats = OrderedDict({loader.name: None for loader in self.loaders})
 
@@ -44,7 +50,10 @@ class LTRTrainer(BaseTrainer):
     def updateBN(self):
         for m in self.actor.net.feature_extractor.modules():
             if isinstance(m, nn.BatchNorm2d):
-                m.weight.grad.data.add_(settings.s*torch.sign(m.weight.data))  # L1
+                try:
+                    m.weight.grad.data.add_(self.settings.s*torch.sign(m.weight.data))  # L1
+                except:
+                    continue
 
     def cycle_dataset(self, loader):
         """Do a cycle of training or validation."""
@@ -53,8 +62,11 @@ class LTRTrainer(BaseTrainer):
         torch.set_grad_enabled(loader.training)
 
         self._init_timing()
-
-        for i, data in enumerate(loader, 1):
+        tk = tqdm(loader, total = len(loader))
+        if loader.name == 'train':
+            self.running_loss_train = 0
+            self.running_loss_val = 0
+        for i, data in enumerate(tk):
             # get inputs
             if self.move_data_to_gpu:
                 data = data.to(self.device)
@@ -64,7 +76,13 @@ class LTRTrainer(BaseTrainer):
 
             # forward pass
             loss, stats = self.actor(data)
-
+            
+            if loader.name == 'train':
+                self.running_loss_train += loss.item() * self.settings.batch_size
+#                 self.global_loss = self.running_loss_train
+            else:
+                self.running_loss_val += loss.item() * self.settings.batch_size
+#                 self.global_loss = self.running_loss_val
             # backward pass and update weights
             if loader.training:
                 self.optimizer.zero_grad()
@@ -75,10 +93,16 @@ class LTRTrainer(BaseTrainer):
 
             # update statistics
             self._update_stats(stats, loader.batch_size, loader)
+            tk.set_postfix({'epoch': self.epoch, 'loss': loss.item(),  })
 
             # print statistics
-            self._print_stats(i, loader, loader.batch_size)
-
+#             self._print_stats(i, loader, loader.batch_size)
+        
+        if loader.name=='train':
+            self.running_loss_train = self.running_loss_train/len(loader)
+        else:
+            self.running_loss_val = self.running_loss_val/len(loader)
+            
     def train_epoch(self):
         """Do one epoch for each loader."""
         for loader in self.loaders:
@@ -87,7 +111,10 @@ class LTRTrainer(BaseTrainer):
 
         self._stats_new_epoch()
         self._write_tensorboard()
-
+        wandb.log({'epoch':self.epoch,'train_loss':self.running_loss_train,'valid_loss':self.running_loss_val})
+        if self.epoch==self.settings.max_epoch:
+            wandb.finish()
+        
     def _init_timing(self):
         self.num_frames = 0
         self.start_time = time.time()

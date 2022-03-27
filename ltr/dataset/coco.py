@@ -32,7 +32,7 @@ class MSCOCO(BaseImageDataset):
     """
 
     def __init__(self, root=None, image_loader=jpeg4py_loader, data_fraction=None, min_area=None,
-                 split="train", version="2014"):
+                 split="train", version="2017"):
         """
         args:
             root - path to coco root folder

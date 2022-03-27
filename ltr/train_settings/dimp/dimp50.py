@@ -8,6 +8,8 @@ from ltr import actors
 from ltr.trainers import LTRTrainer
 import ltr.data.transforms as tfm
 from ltr import MultiGPU
+from ltr.admin.loading import torch_load_legacy
+
 
 
 def run(settings):
@@ -28,14 +30,22 @@ def run(settings):
     settings.hinge_threshold = 0.05
     # settings.print_stats = ['Loss/total', 'Loss/iou', 'ClfTrain/clf_ce', 'ClfTrain/test_loss']
 
+#     # Train datasets
+#     lasot_train = Lasot(settings.env.lasot_dir, split='train')
+#     got10k_train = Got10k(settings.env.got10k_dir, split='vottrain')
+#     trackingnet_train = TrackingNet(settings.env.trackingnet_dir, set_ids=list(range(4)))
+#     coco_train = MSCOCOSeq(settings.env.coco_dir)
+
+#     # Validation datasets
+#     got10k_val = Got10k(settings.env.got10k_dir, split='votval')
     # Train datasets
-    lasot_train = Lasot(settings.env.lasot_dir, split='train')
-    got10k_train = Got10k(settings.env.got10k_dir, split='vottrain')
-    trackingnet_train = TrackingNet(settings.env.trackingnet_dir, set_ids=list(range(4)))
-    coco_train = MSCOCOSeq(settings.env.coco_dir)
+    lasot_train = Lasot('/workspace/tracking_datasets/lasot/LaSOTBenchmark', split='train')
+    got10k_train = Got10k('/workspace/tracking_datasets/got/train', split='vottrain')
+    trackingnet_train = TrackingNet('/workspace/tracking_datasets/trackingnet', set_ids=list(range(4)))
+    coco_train = MSCOCOSeq('/workspace/tracking_datasets/coco1')
 
     # Validation datasets
-    got10k_val = Got10k(settings.env.got10k_dir, split='votval')
+    got10k_val = Got10k('/workspace/tracking_datasets/got/train', split='votval')
 
 
     # Data transform
@@ -85,7 +95,7 @@ def run(settings):
                                       processing=data_processing_val)
 
     loader_val = LTRLoader('val', dataset_val, training=False, batch_size=settings.batch_size, num_workers=settings.num_workers,
-                           shuffle=False, drop_last=True, epoch_interval=5, stack_dim=1)
+                           shuffle=False, drop_last=True, epoch_interval=1, stack_dim=1)
 
     # Create network and actor
     net = dimpnet.dimpnet50(filter_size=settings.target_filter_sz, backbone_pretrained=True, optim_iter=5,
@@ -93,6 +103,7 @@ def run(settings):
                             optim_init_step=0.9, optim_init_reg=0.1,
                             init_gauss_sigma=output_sigma * settings.feature_sz, num_dist_bins=100,
                             bin_displacement=0.1, mask_init_factor=3.0, target_mask_act='sigmoid', score_act='relu')
+    net.load_state_dict(torch_load_legacy('/workspace/pytracking/pytracking/networks/dimp50.pth')['net'])
 
     # Wrap the network for multi GPU training
     if settings.multi_gpu:

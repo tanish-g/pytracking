@@ -19,7 +19,7 @@ class GOT10KDataset(BaseDataset):
         super().__init__()
         # Split can be test, val, or ltrval (a validation split consisting of videos from the official train set)
         if split == 'test' or split == 'val':
-            self.base_path = os.path.join(self.env_settings.got10k_path, split)
+            self.base_path = os.path.join("/workspace/tracking_datasets/got", split)
         else:
             self.base_path = os.path.join(self.env_settings.got10k_path, 'train')
 

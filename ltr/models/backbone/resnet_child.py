@@ -1,9 +1,44 @@
 import math
+import torch
 import torch.nn as nn
 from collections import OrderedDict
 import torch.utils.model_zoo as model_zoo
 from torchvision.models.resnet import model_urls
 from .base import Backbone
+
+
+import numpy as np
+
+
+
+class channel_selection(nn.Module):
+    """
+    Select channels from the output of BatchNorm2d layer. It should be put directly after BatchNorm2d layer.
+    The output shape of this layer is determined by the number of 1 in `self.indexes`.
+    """
+    def __init__(self, num_channels):
+        """
+        Initialize the `indexes` with all one vector with the length same as the number of channels.
+        During pruning, the places in `indexes` which correpond to the channels to be pruned will be set to 0.
+        """
+        super(channel_selection, self).__init__()
+        self.indexes = nn.Parameter(torch.ones(num_channels))
+
+    def forward(self, input_tensor):
+        """
+        Parameter
+        ---------
+        input_tensor: (N,C,H,W). It should be the output of BatchNorm2d layer.
+        """
+        selected_index = np.squeeze(np.argwhere(self.indexes.data.cpu().numpy()))
+        if selected_index.size == 1:
+            selected_index = np.resize(selected_index, (1,)) 
+        output = input_tensor[:, :, :, :]
+        return output
+
+
+
+
 
 def conv3x3(in_planes, out_planes, stride=1, dilation=1):
     """3x3 convolution with padding"""
@@ -55,22 +90,22 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, dilation=1):
+    def __init__(self, inplanes, planes, cfg, stride=1, downsample=None, dilation=1,):
         super(Bottleneck, self).__init__()
-        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
+        self.conv1 = nn.Conv2d(inplanes,cfg[1], kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(cfg[1])
+        self.conv2 = nn.Conv2d(cfg[1], cfg[2], kernel_size=3, stride=stride,
                                padding=dilation, bias=False, dilation=dilation)
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(cfg[2])
+        self.conv3 = nn.Conv2d(cfg[2], planes * 4, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(planes * 4)
+        self.select = channel_selection(planes*4)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
 
     def forward(self, x):
         residual = x
-
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
@@ -81,7 +116,7 @@ class Bottleneck(nn.Module):
 
         out = self.conv3(out)
         out = self.bn3(out)
-
+#         out = self.select(out)
         if self.downsample is not None:
             residual = self.downsample(x)
 
@@ -93,20 +128,21 @@ class Bottleneck(nn.Module):
 
 class ResNet(Backbone):
     """ ResNet network module. Allows extracting specific feature blocks."""
-    def __init__(self, block, layers, output_layers, num_classes=1000, inplanes=64, dilation_factor=1, frozen_layers=()):
+    def __init__(self, block, layers, output_layers,cfg = None , num_classes=1000, inplanes=64, dilation_factor=1, frozen_layers=()):
         self.inplanes = inplanes
         super(ResNet, self).__init__(frozen_layers=frozen_layers)
         self.output_layers = output_layers
-        self.conv1 = nn.Conv2d(3, inplanes, kernel_size=7, stride=2, padding=3,
+        self.conv1 = nn.Conv2d(3, inplanes , kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = nn.BatchNorm2d(inplanes)
+
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         stride = [1 + (dilation_factor < l) for l in (8, 4, 2)]
-        self.layer1 = self._make_layer(block, inplanes, layers[0], dilation=max(dilation_factor//8, 1))
-        self.layer2 = self._make_layer(block, inplanes*2, layers[1], stride=stride[0], dilation=max(dilation_factor//4, 1))
-        self.layer3 = self._make_layer(block, inplanes*4, layers[2], stride=stride[1], dilation=max(dilation_factor//2, 1))
-        self.layer4 = self._make_layer(block, inplanes*8, layers[3], stride=stride[2], dilation=dilation_factor)
+        self.layer1 = self._make_layer(block, inplanes, layers[0], dilation=max(dilation_factor//8, 1), cfg = cfg[0:3*layers[0]])
+        self.layer2 = self._make_layer(block, inplanes*2, layers[1], stride=stride[0], dilation=max(dilation_factor//4, 1), cfg = cfg[3*layers[0]:3*layers[1]+3*layers[0]])
+        self.layer3 = self._make_layer(block, inplanes*4, layers[2], stride=stride[1], dilation=max(dilation_factor//2, 1), cfg = cfg[3*layers[1]+3*layers[0]:3*layers[1]+3*layers[0]+3*layers[2]])
+        self.layer4 = self._make_layer(block, inplanes*8, layers[3], stride=stride[2], dilation=dilation_factor, cfg = cfg[3*layers[1]+3*layers[0]+3*layers[2]:3*layers[1]+3*layers[0]+3*layers[2]+3*layers[3]])
 
         out_feature_strides = {'conv1': 4, 'layer1': 4, 'layer2': 4*stride[0], 'layer3': 4*stride[0]*stride[1],
                                'layer4': 4*stride[0]*stride[1]*stride[2]}
@@ -127,7 +163,7 @@ class ResNet(Backbone):
 
         # self.avgpool = nn.AvgPool2d(7, stride=1)
         self.avgpool = nn.AdaptiveAvgPool2d((1,1))
-        self.fc = nn.Linear(inplanes*8 * block.expansion, num_classes)
+        self.fc = nn.Linear(cfg[-1], num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -149,20 +185,21 @@ class ResNet(Backbone):
         else:
             return self._out_feature_channels[layer]
 
-    def _make_layer(self, block, planes, blocks, stride=1, dilation=1):
+    def _make_layer(self, block, planes, blocks, stride=1, dilation=1, cfg=None):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
                 nn.Conv2d(self.inplanes, planes * block.expansion,
                           kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(planes * block.expansion),
+                channel_selection(planes * block.expansion),
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample, dilation=dilation))
+        layers.append(block(self.inplanes, planes, cfg[0:3], stride, downsample, dilation=dilation))
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes))
+            layers.append(block(self.inplanes, planes, cfg[3*i:3*(i+1)]))
 
         return nn.Sequential(*layers)
 
@@ -179,7 +216,7 @@ class ResNet(Backbone):
             output_layers = self.output_layers
 
         x = self.conv1(x)
-        x = self.bn1(x)
+        x = self.bn1(x) ####### select daal dena
         x = self.relu(x)
 
         if self._add_output_and_check('conv1', x, outputs, output_layers):
@@ -256,7 +293,7 @@ def resnet18(output_layers=None, pretrained=False, **kwargs):
     return model
 
 
-def resnet50(output_layers=None, pretrained=False, **kwargs):
+def resnet50_child(output_layers=None, pretrained=False,cfg = None,**kwargs):
     """Constructs a ResNet-50 model.
     """
 
@@ -266,13 +303,16 @@ def resnet50(output_layers=None, pretrained=False, **kwargs):
         for l in output_layers:
             if l not in ['conv1', 'layer1', 'layer2', 'layer3', 'layer4', 'fc']:
                 raise ValueError('Unknown layer: {}'.format(l))
-
-    model = ResNet(Bottleneck, [3, 4, 6, 3], output_layers, **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
+#     ckpt = torch.load('/workspace/tracking_datasets/pruned_ckpts/dimp50_correct/dimp50_correct.pth.tar')
+#     cfg = ckpt['cfg']
+    model = ResNet(Bottleneck, [3, 4, 6, 3],output_layers,cfg=cfg,**kwargs)
+#     if pretrained:
+# #         model.load_state_dict(model_zoo.load_url(model_urls['resnet50'], progress = False), strict = False )
+#           model.load_state_dict(ckpt['state_dict'])
+#           print('pruned checkpoint loaded')
     return model
 
-def resnet101(output_layers=None, pretrained=False, **kwargs):
+def resnet101_child(output_layers=None, pretrained=False,cfg = None,**kwargs):
     """Constructs a ResNet-50 model.
     """
 
@@ -282,8 +322,12 @@ def resnet101(output_layers=None, pretrained=False, **kwargs):
         for l in output_layers:
             if l not in ['conv1', 'layer1', 'layer2', 'layer3', 'layer4', 'fc']:
                 raise ValueError('Unknown layer: {}'.format(l))
-
-    model = ResNet(Bottleneck,[3, 4, 23, 3], output_layers, **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet101']))
+#     ckpt = torch.load('/workspace/tracking_datasets/pruned_ckpts/dimp50_correct/dimp50_correct.pth.tar')
+#     cfg = ckpt['cfg']
+    model = ResNet(Bottleneck,[3, 4, 23, 3], output_layers,cfg=cfg,**kwargs)
+#     if pretrained:
+# #         model.load_state_dict(model_zoo.load_url(model_urls['resnet50'], progress = False), strict = False )
+#           model.load_state_dict(ckpt['state_dict'])
+#           print('pruned checkpoint loaded')
     return model
+

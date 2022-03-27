@@ -4,6 +4,9 @@ from collections import OrderedDict
 import torch.utils.model_zoo as model_zoo
 from torchvision.models.resnet import model_urls
 from .base import Backbone
+from .channel_selection import channel_selection
+
+
 
 def conv3x3(in_planes, out_planes, stride=1, dilation=1):
     """3x3 convolution with padding"""
@@ -64,15 +67,16 @@ class Bottleneck(nn.Module):
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(planes * 4)
+        self.select = channel_selection(inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
 
     def forward(self, x):
         residual = x
-
         out = self.conv1(x)
         out = self.bn1(out)
+#         out = self.select(out)
         out = self.relu(out)
 
         out = self.conv2(out)
@@ -81,7 +85,8 @@ class Bottleneck(nn.Module):
 
         out = self.conv3(out)
         out = self.bn3(out)
-
+        out = self.select(out)
+        
         if self.downsample is not None:
             residual = self.downsample(x)
 
@@ -270,20 +275,4 @@ def resnet50(output_layers=None, pretrained=False, **kwargs):
     model = ResNet(Bottleneck, [3, 4, 6, 3], output_layers, **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
-    return model
-
-def resnet101(output_layers=None, pretrained=False, **kwargs):
-    """Constructs a ResNet-50 model.
-    """
-
-    if output_layers is None:
-        output_layers = ['default']
-    else:
-        for l in output_layers:
-            if l not in ['conv1', 'layer1', 'layer2', 'layer3', 'layer4', 'fc']:
-                raise ValueError('Unknown layer: {}'.format(l))
-
-    model = ResNet(Bottleneck,[3, 4, 23, 3], output_layers, **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet101']))
     return model

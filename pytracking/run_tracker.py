@@ -11,7 +11,7 @@ from pytracking.evaluation.running import run_dataset
 from pytracking.evaluation import Tracker
 
 
-def run_tracker(tracker_name, tracker_param, run_id=None, dataset_name='otb', sequence=None, debug=0, threads=0,
+def run_tracker(tracker_name, tracker_param, run_id=None, dataset_name='otb', sequence=None, debug=0, threads=0, multiple_inf_num = None,
                 visdom_info=None):
     """Run tracker on sequence or dataset.
     args:
@@ -34,7 +34,7 @@ def run_tracker(tracker_name, tracker_param, run_id=None, dataset_name='otb', se
 
     trackers = [Tracker(tracker_name, tracker_param, run_id)]
 
-    run_dataset(dataset, trackers, debug, threads, visdom_info=visdom_info)
+    run_dataset(dataset, trackers, debug, threads, visdom_info=visdom_info, multiple_inf_num = multiple_inf_num)
 
 
 def main():
@@ -49,6 +49,7 @@ def main():
     parser.add_argument('--use_visdom', type=bool, default=True, help='Flag to enable visdom.')
     parser.add_argument('--visdom_server', type=str, default='127.0.0.1', help='Server for visdom.')
     parser.add_argument('--visdom_port', type=int, default=8097, help='Port for visdom.')
+    parser.add_argument('--multiple_inf_num', type=int, help='Enter multiple inference number')
 
     args = parser.parse_args()
 
@@ -58,7 +59,7 @@ def main():
         seq_name = args.sequence
 
     run_tracker(args.tracker_name, args.tracker_param, args.runid, args.dataset_name, seq_name, args.debug,
-                args.threads, {'use_visdom': args.use_visdom, 'server': args.visdom_server, 'port': args.visdom_port})
+                args.threads, args.multiple_inf_num, {'use_visdom': args.use_visdom, 'server': args.visdom_server, 'port': args.visdom_port})
 
 
 if __name__ == '__main__':

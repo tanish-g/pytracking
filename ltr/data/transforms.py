@@ -133,7 +133,7 @@ class TransformBase:
             return im.shape[:2]
         if torch.is_tensor(im):
             return (im.shape[-2], im.shape[-1])
-        raise Exception('Unknown image type')
+#        raise Exception('Unknown image type')
 
     def roll(self):
         return None

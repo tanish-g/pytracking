@@ -9,12 +9,14 @@ from ltr.trainers import LTRTrainer
 import ltr.data.transforms as tfm
 from ltr import MultiGPU
 from ltr.admin.loading import torch_load_legacy
+import torch
+import gc
 
 def run(settings):
-    settings.description = 'Default train settings for DiMP with ResNet18 as backbone.'
-    settings.batch_size = 26
+    settings.description = 'Default train settings for DiMP with ResNet50 as backbone.'
+    settings.batch_size = 10
     settings.num_workers = 8
-    settings.multi_gpu = True
+    settings.multi_gpu = False
     settings.print_interval = 1
     settings.normalize_mean = [0.485, 0.456, 0.406]
     settings.normalize_std = [0.229, 0.224, 0.225]
@@ -26,13 +28,21 @@ def run(settings):
     settings.center_jitter_factor = {'train': 3, 'test': 4.5}
     settings.scale_jitter_factor = {'train': 0.25, 'test': 0.5}
     settings.hinge_threshold = 0.05
-    settings.print_stats = ['Loss/total', 'Loss/iou', 'ClfTrain/init_loss', 'ClfTrain/test_loss']
+    # settings.print_stats = ['Loss/total', 'Loss/iou', 'ClfTrain/clf_ce', 'ClfTrain/test_loss']
 
+#     # Train datasets
+#     lasot_train = Lasot(settings.env.lasot_dir, split='train')
+#     got10k_train = Got10k(settings.env.got10k_dir, split='vottrain')
+#     trackingnet_train = TrackingNet(settings.env.trackingnet_dir, set_ids=list(range(4)))
+#     coco_train = MSCOCOSeq(settings.env.coco_dir)
+
+#     # Validation datasets
+#     got10k_val = Got10k(settings.env.got10k_dir, split='votval')
     # Train datasets
     lasot_train = Lasot('/workspace/tracking_datasets/lasot/LaSOTBenchmark', split='train')
     got10k_train = Got10k('/workspace/tracking_datasets/got/train', split='vottrain')
     trackingnet_train = TrackingNet('/workspace/tracking_datasets/trackingnet', set_ids=list(range(4)))
-    coco_train = MSCOCOSeq('/workspace/tracking_datasets/coco')
+    coco_train = MSCOCOSeq('/workspace/tracking_datasets/coco1')
 
     # Validation datasets
     got10k_val = Got10k('/workspace/tracking_datasets/got/train', split='votval')
@@ -88,13 +98,20 @@ def run(settings):
                            shuffle=False, drop_last=True, epoch_interval=1, stack_dim=1)
 
     # Create network and actor
-    net = dimpnet.dimpnet18(filter_size=settings.target_filter_sz, backbone_pretrained=True, optim_iter=5,
-                            clf_feat_norm=True, final_conv=True, optim_init_step=0.9, optim_init_reg=0.1,
+    ckpt2 = torch.load('/workspace/tracking_datasets/pruned_ckpts/dimp101_correct/dimp50_correct.pth.tar')
+    cfg = ckpt2['cfg']
+    net = dimpnet.dimpnet101_child(filter_size=settings.target_filter_sz, backbone_pretrained=True, optim_iter=5,
+                            clf_feat_norm=True, clf_feat_blocks=0, final_conv=True, out_feature_dim=512,
+                            optim_init_step=0.9, optim_init_reg=0.1,
                             init_gauss_sigma=output_sigma * settings.feature_sz, num_dist_bins=100,
-                            bin_displacement=0.1, mask_init_factor=3.0, target_mask_act='sigmoid', score_act='relu')
-    net.load_state_dict(torch_load_legacy('/workspace/pytracking/pytracking/networks/dimp18.pth')['net'])
-    
-    print("****************************")
+                            bin_displacement=0.1, mask_init_factor=3.0, target_mask_act='sigmoid', score_act='relu',cfg=cfg)
+#     net.load_state_dict(torch.load('/workspace/tracking_datasets/pruned_ckpts/dimp50/pruned_50p.pth.tar')['state_dict'])
+    ckpt1 = torch_load_legacy('/workspace/pytracking/pytracking/networks/dimp50.pth')['net']
+    ckpt2 = ckpt2['state_dict']
+    for key, value in ckpt1.items():
+        if (key.split('.')[0] == 'feature_extractor'):
+            ckpt1[key] = ckpt2[key.replace('feature_extractor.','')]
+    net.load_state_dict(ckpt1, strict = False)
     # Wrap the network for multi GPU training
     if settings.multi_gpu:
         net = MultiGPU(net, dim=1)
@@ -109,12 +126,12 @@ def run(settings):
     optimizer = optim.Adam([{'params': actor.net.classifier.filter_initializer.parameters(), 'lr': 5e-5},
                             {'params': actor.net.classifier.filter_optimizer.parameters(), 'lr': 5e-4},
                             {'params': actor.net.classifier.feature_extractor.parameters(), 'lr': 5e-5},
-                            {'params': actor.net.bb_regressor.parameters(), 'lr': 1e-3},
-                            {'params': actor.net.feature_extractor.parameters()}],
+                            {'params': actor.net.bb_regressor.parameters()},
+                            {'params': actor.net.feature_extractor.parameters(), 'lr': 2e-5}],
                            lr=2e-4)
 
     lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.2)
 
-    trainer = LTRTrainer(actor, [loader_train, loader_val], optimizer, settings,lr_scheduler)
+    trainer = LTRTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
-    trainer.train(settings.max_epoch , load_latest=True, fail_safe=True)
+    trainer.train(100, load_latest=True, fail_safe=True)
