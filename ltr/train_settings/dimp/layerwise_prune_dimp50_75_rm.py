@@ -9,8 +9,8 @@ from ltr.trainers import LTRTrainer
 import ltr.data.transforms as tfm
 from ltr import MultiGPU
 from ltr.admin.loading import torch_load_legacy
-
-
+import torch
+import gc
 
 def run(settings):
     settings.description = 'Default train settings for DiMP with ResNet50 as backbone.'
@@ -42,10 +42,11 @@ def run(settings):
     lasot_train = Lasot('/workspace/tracking_datasets/lasot/LaSOTBenchmark', split='train')
     got10k_train = Got10k('/workspace/tracking_datasets/got/train', split='vottrain')
     trackingnet_train = TrackingNet('/workspace/tracking_datasets/trackingnet', set_ids=list(range(4)))
-    coco_train = MSCOCOSeq('/workspace/tracking_datasets/coco')
+    coco_train = MSCOCOSeq('/workspace/tracking_datasets/coco1')
 
     # Validation datasets
     got10k_val = Got10k('/workspace/tracking_datasets/got/train', split='votval')
+
 
     # Data transform
     transform_joint = tfm.Transform(tfm.ToGrayscale(probability=0.05))
@@ -97,13 +98,20 @@ def run(settings):
                            shuffle=False, drop_last=True, epoch_interval=1, stack_dim=1)
 
     # Create network and actor
-    net = dimpnet.dimpnet101(filter_size=settings.target_filter_sz, backbone_pretrained=True, optim_iter=5,
+    ckpt2 = torch.load('/workspace/tracking_datasets/pruned_ckpts/dimp50_correct/layerwise_pruned_75p.pth.tar')
+    cfg = ckpt2['cfg']
+    net = dimpnet.dimpnet50_child(filter_size=settings.target_filter_sz, backbone_pretrained=True, optim_iter=5,
                             clf_feat_norm=True, clf_feat_blocks=0, final_conv=True, out_feature_dim=512,
                             optim_init_step=0.9, optim_init_reg=0.1,
                             init_gauss_sigma=output_sigma * settings.feature_sz, num_dist_bins=100,
-                            bin_displacement=0.1, mask_init_factor=3.0, target_mask_act='sigmoid', score_act='relu')
-#     net.load_state_dict(torch_load_legacy('/workspace/tracking_datasets/saved_ckpts/ltr/dimp/scratch/dimp101/DiMPnet_ep0101.pth.tar')['net'])
-
+                            bin_displacement=0.1, mask_init_factor=3.0, target_mask_act='sigmoid', score_act='relu',cfg=cfg)
+#     net.load_state_dict(torch.load('/workspace/tracking_datasets/pruned_ckpts/dimp50/pruned_50p.pth.tar')['state_dict'])
+    ckpt1 = torch_load_legacy('/workspace/pytracking/pytracking/networks/dimp50.pth')['net']
+    ckpt2 = ckpt2['state_dict']
+    for key, value in ckpt1.items():
+        if (key.split('.')[0] == 'feature_extractor'):
+            ckpt1[key] = ckpt2[key.replace('feature_extractor.','')]
+    net.load_state_dict(ckpt1, strict = False)
     # Wrap the network for multi GPU training
     if settings.multi_gpu:
         net = MultiGPU(net, dim=1)
@@ -122,8 +130,8 @@ def run(settings):
                             {'params': actor.net.feature_extractor.parameters(), 'lr': 2e-5}],
                            lr=2e-4)
 
-    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.4)
+    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.2)
 
     trainer = LTRTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
-    trainer.train(100, load_latest=True, fail_safe=True)
+    trainer.train(50, load_latest=True, fail_safe=True)

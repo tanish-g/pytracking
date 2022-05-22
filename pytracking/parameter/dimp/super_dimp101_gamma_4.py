@@ -9,8 +9,10 @@ def parameters():
 
     params.use_gpu = True
 
-    params.image_sample_size = 18*16
-    params.search_area_scale = 5
+    params.image_sample_size = 22*16
+    params.search_area_scale = 6
+    params.border_mode = 'inside_major'
+    params.patch_max_scale_change = 1.5
 
     # Learning parameters
     params.sample_memory_size = 50
@@ -49,18 +51,18 @@ def parameters():
     params.update_scale_when_uncertain = True
 
     # IoUnet parameters
-    params.iounet_augmentation = False
-    params.iounet_use_log_scale = True
-    params.iounet_k = 3
-    params.num_init_random_boxes = 9
-    params.box_jitter_pos = 0.1
-    params.box_jitter_sz = 0.5
-    params.maximal_aspect_ratio = 6
-    params.box_refinement_iter = 5
-    params.box_refinement_step_length = 1
-    params.box_refinement_step_decay = 1
+    params.box_refinement_space = 'relative'
+    params.iounet_augmentation = False      # Use the augmented samples to compute the modulation vector
+    params.iounet_k = 3                     # Top-k average to estimate final box
+    params.num_init_random_boxes = 9        # Num extra random boxes in addition to the classifier prediction
+    params.box_jitter_pos = 0.1             # How much to jitter the translation for random boxes
+    params.box_jitter_sz = 0.5              # How much to jitter the scale for random boxes
+    params.maximal_aspect_ratio = 6         # Limit on the aspect ratio
+    params.box_refinement_iter = 10          # Number of iterations for refining the boxes
+    params.box_refinement_step_length = 2.5e-3 # 1   # Gradient step length in the bounding box refinement
+    params.box_refinement_step_decay = 1    # Multiplicative step length decay (1 means no decay)
 
-    params.net = NetWithBackbone(net_path='DiMPnet_ep0100.pth.tar',
+    params.net = NetWithBackbone(net_path='super_dimp_101_gamma_4.pth.tar',
                                  use_gpu=params.use_gpu)
 
     params.vot_anno_conversion_type = 'preserve_area'

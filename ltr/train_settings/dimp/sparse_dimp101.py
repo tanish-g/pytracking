@@ -102,7 +102,7 @@ def run(settings):
                             optim_init_step=0.9, optim_init_reg=0.1,
                             init_gauss_sigma=output_sigma * settings.feature_sz, num_dist_bins=100,
                             bin_displacement=0.1, mask_init_factor=3.0, target_mask_act='sigmoid', score_act='relu')
-#     net.load_state_dict(torch_load_legacy('/workspace/tracking_datasets/saved_ckpts/ltr/dimp/scratch/dimp101/DiMPnet_ep0101.pth.tar')['net'])
+    net.load_state_dict(torch_load_legacy('/workspace/tracking_datasets/saved_ckpts/ltr/dimp/scratch/dimp101/DiMPnet_ep0101.pth.tar')['net'])
 
     # Wrap the network for multi GPU training
     if settings.multi_gpu:

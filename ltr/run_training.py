@@ -32,7 +32,10 @@ def run_training(train_module, train_name,prune,s,ckpt_path,epochs,cudnn_benchma
     settings.module_name = train_module
     settings.script_name = train_name
     settings.project_path = 'ltr/{}/{}/{}'.format(train_module,ckpt_path,train_name)
-    settings.prune = False
+    if prune == 'true':
+        settings.prune = True
+    else:
+        settings.prune=False
     settings.s = s
     settings.ckpt_path = ckpt_path
     settings.max_epoch = epochs
@@ -49,7 +52,7 @@ def main():
     parser = argparse.ArgumentParser(description='Run a train scripts in train_settings.')
     parser.add_argument('train_module', type=str, help='Name of module in the "train_settings/" folder.')
     parser.add_argument('train_name', type=str, help='Name of the train settings file.')
-    parser.add_argument('--prune', type=bool,help='Sparsity Training')
+    parser.add_argument('--prune', type=str,default='false',help='Sparsity Training')
     parser.add_argument('--s', type=float, default=1e-5, help='Sparsity Parameter')
     parser.add_argument('--ckpt',type=str,help='Model save path')
     parser.add_argument('--epochs',type=int,default=50,help='number of epochs to run')
