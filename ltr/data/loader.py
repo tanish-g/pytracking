@@ -1,10 +1,11 @@
+import sys
+sys.path.append('')
 import torch
 import torch.utils.data.dataloader
 import importlib
 import collections
 from torch._six import string_classes, int_classes
 from pytracking import TensorDict, TensorList
-
 
 def _check_use_shared_memory():
     if hasattr(torch.utils.data.dataloader, '_use_shared_memory'):

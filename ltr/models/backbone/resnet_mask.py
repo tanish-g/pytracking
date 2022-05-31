@@ -4,6 +4,16 @@ from collections import OrderedDict
 import torch.utils.model_zoo as model_zoo
 from torchvision.models.resnet import model_urls
 from .base import Backbone
+import torch
+
+class scaler(nn.Module):
+    def __init__(self,num_features):
+        super(scaler, self).__init__()
+        self.weight = nn.parameter.Parameter(torch.empty(num_features)).reshape(1,num_features,1,1).cuda()
+        self.weight.retain_grad()
+    def forward(self,x):
+        out = self.weight * x
+        return out
 
 def conv3x3(in_planes, out_planes, stride=1, dilation=1):
     """3x3 convolution with padding"""
@@ -26,6 +36,7 @@ class BasicBlock(nn.Module):
 
         if use_bn:
             self.bn2 = nn.BatchNorm2d(planes)
+        self.mask = nn.paramater.Parameter(torch.empty(num_features, **factory_kwargs))
         self.downsample = downsample
         self.stride = stride
 
@@ -65,6 +76,7 @@ class Bottleneck(nn.Module):
         self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(planes * 4)
         self.relu = nn.ReLU(inplace=True)
+        self.mask = scaler(planes*4)
         self.downsample = downsample
         self.stride = stride
 
@@ -84,7 +96,11 @@ class Bottleneck(nn.Module):
 
         if self.downsample is not None:
             residual = self.downsample(x)
-
+        
+        out = self.mask(out)
+        residual = self.mask(residual)
+#         print(out+residual)
+        
         out += residual
         out = self.relu(out)
 
@@ -136,6 +152,8 @@ class ResNet(Backbone):
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
+            elif isinstance(m,scaler):
+                m.weight.data.fill_(1)
 
     def out_feature_strides(self, layer=None):
         if layer is None:
@@ -256,7 +274,7 @@ def resnet18(output_layers=None, pretrained=False, **kwargs):
     return model
 
 
-def resnet50(output_layers=None, pretrained=False, **kwargs):
+def resnet50_mask(output_layers=None, pretrained=False, **kwargs):
     """Constructs a ResNet-50 model.
     """
 
@@ -272,7 +290,7 @@ def resnet50(output_layers=None, pretrained=False, **kwargs):
         model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
     return model
 
-def resnet101(output_layers=None, pretrained=False, **kwargs):
+def resnet101_mask(output_layers=None, pretrained=False, **kwargs):
     """Constructs a ResNet-50 model.
     """
 

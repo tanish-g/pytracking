@@ -90,10 +90,9 @@ class Bottleneck(nn.Module):
 
         return out
 
-
 class ResNet(Backbone):
     """ ResNet network module. Allows extracting specific feature blocks."""
-    def __init__(self, block, layers, output_layers, num_classes=1000, inplanes=64, dilation_factor=1, frozen_layers=()):
+    def __init__(self, block, layers, output_layers, num_classes=1000, inplanes=16, dilation_factor=1, frozen_layers=()):
         self.inplanes = inplanes
         super(ResNet, self).__init__(frozen_layers=frozen_layers)
         self.output_layers = output_layers

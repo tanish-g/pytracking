@@ -8,6 +8,16 @@ import time
 import torch.nn as nn
 from tqdm import tqdm
 import wandb
+
+class scaler(nn.Module):
+    def __init__(self,num_features):
+        super(scaler, self).__init__()
+        self.weight = nn.parameter.Parameter(torch.empty(num_features)).reshape(1,num_features,1,1).cuda()
+        self.weight.retain_grad()
+    def forward(self,x):
+        out = self.weight * x
+        return out
+    
 class LTRTrainer(BaseTrainer):
     def __init__(self, actor, loaders, optimizer, settings,lr_scheduler=None):
         """
@@ -36,7 +46,17 @@ class LTRTrainer(BaseTrainer):
         self.tensorboard_writer = TensorboardWriter(tensorboard_writer_dir, [l.name for l in loaders])
         self.prune = settings.prune
         self.move_data_to_gpu = getattr(settings, 'move_data_to_gpu', True)
-
+    
+#     class scaler(nn.Module):
+#         def __init__(self,num_features):
+#             super(scaler, self).__init__()
+#             self.weight = nn.parameter.Parameter(torch.empty(num_features)).reshape(1,num_features,1,1).cuda()
+#             self.weight.retain_grad()
+#         def forward(self,x):
+#             out = self.weight * x
+#             return out
+    
+    
     def _set_default_settings(self):
         # Dict of all default values
         default = {'print_interval': 10,
@@ -54,6 +74,27 @@ class LTRTrainer(BaseTrainer):
                     m.weight.grad.data.add_(self.settings.s*torch.sign(m.weight.data))  # L1
                 except:
                     continue
+    
+    def update_BN_mask(self):
+        for name, m in self.actor.net.feature_extractor.named_modules():
+            m.weight.grad.data.add_(self.settings.s*torch.sign(m.weight.data))
+#             if isinstance(m, nn.BatchNorm2d):
+#                 try:
+# #                     print('Done_Bn')
+#                     m.weight.grad.data.add_(self.settings.s*torch.sign(m.weight.data))  # L1
+#                 except:
+#                     continue
+ 
+            if name[-4:] == 'mask':
+                try:
+                    m.weight.grad.data.add_(self.settings.s*torch.sign(m.weight.data))  # L1
+                except:
+                    continue
+
+
+            
+                
+
 
     def cycle_dataset(self, loader):
         """Do a cycle of training or validation."""
@@ -88,7 +129,8 @@ class LTRTrainer(BaseTrainer):
                 self.optimizer.zero_grad()
                 loss.backward()
                 if self.prune: ##add gamma grad in bn
-                    self.updateBN()
+#                     self.updateBN_mask()
+                      self.update_BN_mask()
                 self.optimizer.step()
 
             # update statistics
