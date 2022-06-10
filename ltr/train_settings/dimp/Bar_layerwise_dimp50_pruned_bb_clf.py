@@ -105,8 +105,8 @@ def run(settings):
                             init_gauss_sigma=output_sigma * settings.feature_sz, num_dist_bins=100,
                             bin_displacement=0.1, mask_init_factor=3.0, target_mask_act='sigmoid', score_act='relu')
 #     net.load_state_dict(torch_load_legacy('/workspace/pytracking/pytracking/networks/dimp50.pth')['net'])
-    ckpt1 = torch_load_legacy('/workspace/pytracking/pytracking/networks/dimp50.pth')['net']
-#     ckpt1 = torch.load('/workspace/pytracking/pytracking/networks/dimp50_bar.pth')
+#     ckpt1 = torch_load_legacy('/workspace/pytracking/pytracking/networks/dimp50.pth')['net']
+    ckpt1 = torch.load('/workspace/pytracking/pytracking/networks/dimp50_bar.pth')
     list2 = list(ckpt2.keys())
     new_state = OrderedDict()
     count = 0
@@ -117,16 +117,16 @@ def run(settings):
             count+=1
         else:
             new_state[key] = value
-    new_state.pop('classifier.feature_extractor.0.weight')
-    new_state.pop('bb_regressor.conv3_1r.0.weight')
-    new_state.pop('bb_regressor.conv3_1t.0.weight')
-    new_state.pop('bb_regressor.conv4_1r.0.weight')
-    new_state.pop('bb_regressor.conv4_1t.0.weight')
+#     new_state.pop('classifier.feature_extractor.0.weight')
+#     new_state.pop('bb_regressor.conv3_1r.0.weight')
+#     new_state.pop('bb_regressor.conv3_1t.0.weight')
+#     new_state.pop('bb_regressor.conv4_1r.0.weight')
+#     new_state.pop('bb_regressor.conv4_1t.0.weight')
 #     for key, value in ckpt1.items():
 #         if (key.split('.')[0] == 'feature_extractor'):
 #             ckpt1[key] = ckpt2[key.replace('feature_extractor.','')]
     net.load_state_dict(new_state, strict = False)
-    print(net.state_dict()['feature_extractor.layer1.0.f_delta.1.weight'])
+#     print(net.state_dict()['feature_extractor.layer1.0.f_delta.1.weight'])
     # Wrap the network for multi GPU training
     if settings.multi_gpu:
         net = MultiGPU(net, dim=1)

@@ -77,17 +77,17 @@ class LTRTrainer(BaseTrainer):
     
     def update_BN_mask(self):
         for name, m in self.actor.net.feature_extractor.named_modules():
-            m.weight.grad.data.add_(self.settings.s*torch.sign(m.weight.data))
-#             if isinstance(m, nn.BatchNorm2d):
-#                 try:
-# #                     print('Done_Bn')
-#                     m.weight.grad.data.add_(self.settings.s*torch.sign(m.weight.data))  # L1
-#                 except:
-#                     continue
+#             m.weight.grad.data.add_(self.settings.s*torch.sign(m.weight.data))
+            if isinstance(m, nn.BatchNorm2d):
+                try:
+#                     print('Done_Bn')
+                    m.weight.grad.data.add_(self.settings.s*torch.sign(m.weight.data))  # L1
+                except:
+                    continue
  
             if name[-4:] == 'mask':
                 try:
-                    m.weight.grad.data.add_(self.settings.s*torch.sign(m.weight.data))  # L1
+                    m.weight.grad.data.add_(self.settings.s*3*torch.sign(m.weight.data))  # L1
                 except:
                     continue
 

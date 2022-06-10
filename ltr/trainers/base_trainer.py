@@ -190,9 +190,10 @@ class BaseTrainer:
             if key in ignore_fields:
                 continue
             if key == 'net':
-                net.load_state_dict(checkpoint_dict[key])
+                net.load_state_dict(checkpoint_dict[key],strict=False)
             elif key == 'optimizer':
-                self.optimizer.load_state_dict(checkpoint_dict[key])
+                continue
+#                 self.optimizer.load_state_dict(checkpoint_dict[key])
             else:
                 setattr(self, key, checkpoint_dict[key])
 

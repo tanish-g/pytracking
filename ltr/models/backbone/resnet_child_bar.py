@@ -185,8 +185,8 @@ def clean_block(mixed_block, previous_layer_alivef, cur_layer_alivef):
 #         print('Res:  ', len(mixed_block.res_idx))
     mixed_block.delta_idx = clean_indices(mixed_block.delta_idx)
 
-    print('In:   ', len(mixed_block.in_idx))
-    print('Delta:', len(mixed_block.delta_idx))
+#     print('In:   ', len(mixed_block.in_idx))
+#     print('Delta:', len(mixed_block.delta_idx))
 
 
 def convert_block(block_module, in_gates, block_name = None):

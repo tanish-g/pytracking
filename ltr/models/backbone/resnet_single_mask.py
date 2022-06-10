@@ -9,7 +9,8 @@ import torch
 class scaler(nn.Module):
     def __init__(self,num_features):
         super(scaler, self).__init__()
-        self.weight = nn.parameter.Parameter(torch.empty(num_features)).reshape(1,num_features,1,1).cuda()
+        tensor = torch.empty(num_features).reshape((1,num_features,1,1))
+        self.weight = nn.parameter.Parameter(tensor.to('cuda'))       
         self.weight.retain_grad()
     def forward(self,x):
         out = self.weight * x
@@ -66,7 +67,7 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes,cfg, stride=1, downsample=None, dilation=1):
+    def __init__(self, inplanes, planes, stride=1, downsample=None, dilation=1):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
@@ -97,9 +98,7 @@ class Bottleneck(nn.Module):
         if self.downsample is not None:
             residual = self.downsample(x)
         
-        out = self.mask(out)
         residual = self.mask(residual)
-#         print(out+residual)
         
         out += residual
         out = self.relu(out)
@@ -153,7 +152,7 @@ class ResNet(Backbone):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
             elif isinstance(m,scaler):
-                m.weight.data.fill_(1)
+                m.weight.data.fill_(0.5)
 
     def out_feature_strides(self, layer=None):
         if layer is None:
@@ -173,7 +172,7 @@ class ResNet(Backbone):
             downsample = nn.Sequential(
                 nn.Conv2d(self.inplanes, planes * block.expansion,
                           kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(planes * block.expansion),
+#                 nn.BatchNorm2d(planes * block.expansion),
             )
 
         layers = []
@@ -274,7 +273,7 @@ def resnet18(output_layers=None, pretrained=False, **kwargs):
     return model
 
 
-def resnet50_mask(output_layers=None, pretrained=False, **kwargs):
+def resnet50_single_mask(output_layers=None, pretrained=False, **kwargs):
     """Constructs a ResNet-50 model.
     """
 
@@ -287,10 +286,10 @@ def resnet50_mask(output_layers=None, pretrained=False, **kwargs):
 
     model = ResNet(Bottleneck, [3, 4, 6, 3], output_layers, **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
+        model.load_state_dict(model_zoo.load_url(model_urls['resnet50']), strict = False)
     return model
 
-def resnet101_mask(output_layers=None, pretrained=False, **kwargs):
+def resnet101_single_mask(output_layers=None, pretrained=False, **kwargs):
     """Constructs a ResNet-50 model.
     """
 
@@ -303,5 +302,5 @@ def resnet101_mask(output_layers=None, pretrained=False, **kwargs):
 
     model = ResNet(Bottleneck,[3, 4, 23, 3], output_layers, **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet101']))
+        model.load_state_dict(model_zoo.load_url(model_urls['resnet101']), strict = False)
     return model

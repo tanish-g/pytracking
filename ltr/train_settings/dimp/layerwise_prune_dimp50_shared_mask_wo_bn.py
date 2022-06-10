@@ -9,8 +9,8 @@ from ltr.trainers import LTRTrainer
 import ltr.data.transforms as tfm
 from ltr import MultiGPU
 from ltr.admin.loading import torch_load_legacy
-from collections import OrderedDict
 import torch
+import gc
 
 def run(settings):
     settings.description = 'Default train settings for DiMP with ResNet50 as backbone.'
@@ -98,35 +98,27 @@ def run(settings):
                            shuffle=False, drop_last=True, epoch_interval=1, stack_dim=1)
 
     # Create network and actor
-    ckpt2 = torch.load('/workspace/tracking_datasets/pruned_ckpts/dimp50_bar/correct_layerwise_pruned_50p.pth.tar')
-    net = dimpnet.dimpnet50child_bar(filter_size=settings.target_filter_sz, backbone_pretrained=True, optim_iter=5,
+    ckpt2 = torch.load('/workspace/tracking_datasets/pruned_ckpts/dimp50_shared_mask_wo_bn/pruned_50p.pth')
+    cfg = ckpt2['cfg']
+    net = dimpnet.dimpnet50_child_mask(filter_size=settings.target_filter_sz, backbone_pretrained=True, optim_iter=5,
                             clf_feat_norm=True, clf_feat_blocks=0, final_conv=True, out_feature_dim=512,
                             optim_init_step=0.9, optim_init_reg=0.1,
                             init_gauss_sigma=output_sigma * settings.feature_sz, num_dist_bins=100,
-                            bin_displacement=0.1, mask_init_factor=3.0, target_mask_act='sigmoid', score_act='relu')
-#     net.load_state_dict(torch_load_legacy('/workspace/pytracking/pytracking/networks/dimp50.pth')['net'])
+                            bin_displacement=0.1, mask_init_factor=3.0, target_mask_act='sigmoid', score_act='relu',cfg=cfg)
+#     net.load_state_dict(torch.load('/workspace/tracking_datasets/pruned_ckpts/dimp50/pruned_50p.pth.tar')['state_dict'])
     ckpt1 = torch_load_legacy('/workspace/pytracking/pytracking/networks/dimp50.pth')['net']
-#     ckpt1 = torch.load('/workspace/pytracking/pytracking/networks/dimp50_bar.pth')
-    list2 = list(ckpt2.keys())
-    new_state = OrderedDict()
-    count = 0
+    ckpt2 = ckpt2['state_dict']
     for key, value in ckpt1.items():
         if (key.split('.')[0] == 'feature_extractor'):
-            key_new = 'feature_extractor.' + list2[count]
-            new_state[key_new] = ckpt2[list2[count]]
-            count+=1
-        else:
-            new_state[key] = value
-    new_state.pop('classifier.feature_extractor.0.weight')
-    new_state.pop('bb_regressor.conv3_1r.0.weight')
-    new_state.pop('bb_regressor.conv3_1t.0.weight')
-    new_state.pop('bb_regressor.conv4_1r.0.weight')
-    new_state.pop('bb_regressor.conv4_1t.0.weight')
-#     for key, value in ckpt1.items():
-#         if (key.split('.')[0] == 'feature_extractor'):
-#             ckpt1[key] = ckpt2[key.replace('feature_extractor.','')]
-    net.load_state_dict(new_state, strict = False)
-    print(net.state_dict()['feature_extractor.layer1.0.f_delta.1.weight'])
+            ckpt1[key] = ckpt2[key.replace('feature_extractor.','')]
+    ckpt1.pop('classifier.feature_extractor.0.weight')
+    ckpt1.pop('bb_regressor.conv3_1r.0.weight')
+    ckpt1.pop('bb_regressor.conv3_1t.0.weight')
+    ckpt1.pop('bb_regressor.conv4_1r.0.weight')
+    ckpt1.pop('bb_regressor.conv4_1t.0.weight')
+#     print(ckpt1['feature_extractor.bn1.weight'])
+#     break
+    net.load_state_dict(ckpt1, strict = False)
     # Wrap the network for multi GPU training
     if settings.multi_gpu:
         net = MultiGPU(net, dim=1)
